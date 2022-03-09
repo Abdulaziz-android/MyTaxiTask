@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="14dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardElevation="0dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/card_effect_for_background">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="20sp"
+            android:paddingVertical="6dp"
+            app:layout_constraintBottom_toTopOf="@id/details_tv"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/origin_name_tv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawablePadding="10dp"
+                android:gravity="center_vertical"
+                android:maxLines="2"
+                android:paddingTop="14dp"
+                android:text="text of origin"
+                android:textColor="@color/app_color_normal"
+                app:drawableStartCompat="@drawable/ic_baseline_gps_red" />
+
+
+            <TextView
+                android:id="@+id/destination_name_tv"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawablePadding="10dp"
+                android:gravity="top"
+                android:maxLines="2"
+                android:paddingVertical="14dp"
+                android:text="text of destination"
+                android:textColor="@color/app_color_normal"
+                app:drawableStartCompat="@drawable/ic_baseline_gps_fixed_24" />
+
+        </LinearLayout>
+
+
+        <TextView
+            android:id="@+id/details_tv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="0.8dp"
+            android:background="@drawable/tv_back"
+            android:maxLines="1"
+            android:paddingHorizontal="20sp"
+            android:paddingVertical="10dp"
+            android:text="21:35 • 12 900 som"
+            android:textColor="@color/app_color_normal"
+            android:textSize="16sp"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <ImageView
+            android:layout_width="90dp"
+            android:layout_height="60dp"
+            android:layout_marginEnd="10dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/im_sedan_car_model"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.cardview.widget.CardView>

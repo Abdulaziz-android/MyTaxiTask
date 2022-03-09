@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">MyTaxi</string>
+    <string name="title_activity_maps">MyTaxi</string>
+    <string name="access_token">pk.eyJ1IjoiYWJkdWxheml6LWpvbjIxIiwiYSI6ImNsMGFscTJmeTAyM3YzY21qdndlYmM1b3gifQ.BO7vL0I71GTM62i-cnA3GA</string>
+    <string name="user_name">Tom\nHiddleston</string>
+    <string name="user_number">+998(97) 000-00-00</string>
+    <string name="driver">Водитель</string>
+    <string name="common_data">Общие данные</string>
+    <string name="total">Итого</string>
+    <string name="save">Сохранить</string>
+
+    <string name="rating_driver"><![CDATA[<b><font color=#555555>5</font></b>]]></string>
+    <string name="driver_travel_count"><![CDATA[<b><font color=#555555>1 885</font></b>]]></string>
+    <string name="not_connection_error">Нет подключения к Интернету, пожалуйста, переподключитесь!</string>
+</resources>
