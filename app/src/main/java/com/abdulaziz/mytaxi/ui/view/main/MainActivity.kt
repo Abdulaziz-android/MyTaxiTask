@@ -13,9 +13,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.abdulaziz.mytaxi.R
 import com.abdulaziz.mytaxi.databinding.ActivityMainBinding
 import com.abdulaziz.mytaxi.databinding.ItemAlertDialogBinding
-import com.abdulaziz.mytaxi.ui.view.map_screen.MapFragment
 import com.abdulaziz.mytaxi.ui.menu.SlideMenuAdapter
 import com.abdulaziz.mytaxi.ui.menu.SlideMenuItem
+import com.abdulaziz.mytaxi.ui.view.map_screen.MapFragment
 import com.abdulaziz.mytaxi.ui.view.trip_history_screen.TripHistoryFragment
 import com.abdulaziz.mytaxi.utils.ConnectionLiveData
 import com.abdulaziz.mytaxi.utils.NetworkHelper
@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity(), MainView {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
+     //   setSupportActionBar(binding.toolbar as Toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
         setUpMenu(savedInstanceState)
 
@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity(), MainView {
 
     }
 
+    @SuppressLint("SetTextI18n")
     private fun showInfoDialog() {
 
         val alertDialog = AlertDialog.Builder(binding.root.context, R.style.AlertDialogTheme).create()
