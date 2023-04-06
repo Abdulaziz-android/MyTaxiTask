@@ -20,7 +20,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:padding="12dp"
-                android:src="@drawable/mapbox_ic_arrow_back" />
+                android:src="@drawable/ic_baseline_keyboard_backspace_24" />
 
         </androidx.cardview.widget.CardView>
 

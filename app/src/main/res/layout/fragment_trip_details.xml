@@ -4,18 +4,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".ui.view.trip_details_screen.TripDetailsFragment">
 
-    <com.mapbox.mapboxsdk.maps.MapView
+    <com.mapbox.maps.MapView
         android:id="@+id/map"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         mapbox:mapbox_cameraTargetLat="41.311081"
         mapbox:mapbox_cameraTargetLng="69.240562"
-        mapbox:mapbox_cameraZoom="12"
-        app:mapbox_renderTextureMode="true"
-        mapbox:mapbox_styleUrl="mapbox://styles/mapbox/streets-v10" />
+        mapbox:mapbox_cameraZoom="12"/>
 
 
 </FrameLayout>

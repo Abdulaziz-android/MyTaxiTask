@@ -69,15 +69,18 @@ dependencies {
     implementation "androidx.fragment:fragment-ktx:1.5.6"
 
     // MapBox dependencies
-    implementation 'com.mapbox.mapboxsdk:mapbox-android-plugin-places:0.5.0'
-    implementation ('com.mapbox.mapboxsdk:mapbox-android-sdk:6.0.1'){
-        exclude group: 'com.mapbox.mapboxsdk', module: 'mapbox-android-telemetry'
-    }
-    implementation 'com.mapbox.mapboxsdk:mapbox-android-plugin-locationlayer:0.5.0'
-    implementation 'com.mapbox.mapboxsdk:mapbox-android-navigation:0.13.0'
-    implementation ('com.mapbox.mapboxsdk:mapbox-android-navigation-ui:0.13.0'){
-        transitive(true)
-    }
+    implementation 'com.mapbox.maps:android:10.12.1'
+/*    implementation 'com.mapbox.mapboxsdk:mapbox-android-sdk:9.7.1'
+    implementation 'com.mapbox.mapboxsdk:mapbox-sdk-geojson:6.11.0'
+    implementation 'com.mapbox.mapboxsdk:mapbox-sdk-services:6.11.0'*/
+
+    implementation "com.mapbox.search:autofill:1.0.0-rc.2"
+    implementation "com.mapbox.search:mapbox-search-android-ui:1.0.0-rc.2"
+    implementation "com.mapbox.search:discover:1.0.0-rc.2"
+    implementation "com.mapbox.search:place-autocomplete:1.0.0-rc.2"
+    implementation "com.mapbox.search:offline:1.0.0-rc.2"
+
+    implementation "com.mapbox.navigation:android:2.11.0"
 
     // Dexter
     implementation 'com.karumi:dexter:6.2.3'

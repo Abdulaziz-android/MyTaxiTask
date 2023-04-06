@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity(), MainView {
         supportActionBar?.setDisplayShowTitleEnabled(false)
         setUpMenu(savedInstanceState)
 
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+      /*  if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
             supportFragmentManager.beginTransaction()
                 .replace(
                     R.id.fragment_container,
@@ -51,7 +51,13 @@ class MainActivity : AppCompatActivity(), MainView {
             setConnectionChecker()
         }else{
             showInfoDialog()
-        }
+        }*/
+        supportFragmentManager.beginTransaction()
+            .replace(
+                R.id.fragment_container,
+                MapFragment()
+            ).commit()
+        setConnectionChecker()
 
     }
 
