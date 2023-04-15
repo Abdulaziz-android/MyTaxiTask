@@ -5,7 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.view.map_screen.MapFragment">
+    tools:context=".ui.view.picker.PlacePickFragment">
 
     <com.mapbox.maps.MapView
         android:id="@+id/map"
@@ -15,17 +15,18 @@
         mapbox:mapbox_cameraTargetLng="69.240562"
         mapbox:mapbox_cameraZoom="12" />
 
-    <com.mapbox.navigation.dropin.NavigationView
-        android:id="@+id/navigation_view"
-        android:layout_width="wrap_content"
-        android:visibility="gone"
-        android:layout_height="0dp"
-        app:accessToken="@string/mapbox_access_token"
-        app:layout_constraintHeight_percent="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/card"/>
+    <com.airbnb.lottie.LottieAnimationView
+        android:id="@+id/lottie_view"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        app:lottie_renderMode="software"
+        app:layout_constraintBottom_toTopOf="@id/card"
+        app:layout_constraintEnd_toEndOf="@id/map"
+        app:layout_constraintStart_toStartOf="@id/map"
+        app:layout_constraintTop_toTopOf="@id/map"
+        app:lottie_autoPlay="false"
+        app:lottie_rawRes="@raw/red_pin_map" />
+
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
@@ -43,6 +44,8 @@
         android:id="@+id/card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:focusable="true"
+        android:clickable="true"
         app:cardBackgroundColor="@color/white"
         app:cardCornerRadius="14dp"
         app:layout_constraintBottom_toBottomOf="parent">
@@ -71,31 +74,7 @@
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/from_tv"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="0.5dp"
-                        android:drawableStart="@drawable/ic_baseline_location_on_24"
-                        android:drawablePadding="8dp"
-                        android:hint="Откуда?"
-                        android:maxLines="1"
-                        android:padding="12dp"
-                        app:layout_constraintBottom_toTopOf="@id/dv_between_tvs"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                    <com.google.android.material.divider.MaterialDivider
-                        android:id="@+id/dv_between_tvs"
-                        android:layout_width="0dp"
-                        android:layout_height="0.6dp"
-                        android:background="#33ECECEC"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toEndOf="@id/to_tv"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
-
-                    <TextView
-                        android:id="@+id/to_tv"
+                        android:id="@+id/place_tv"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="0.5dp"
@@ -106,7 +85,7 @@
                         android:padding="12dp"
                         app:layout_constraintBottom_toBottomOf="parent"
                         app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/dv_between_tvs"
+                        app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintWidth_percent="0.8" />
 
                     <com.google.android.material.divider.MaterialDivider
@@ -115,9 +94,9 @@
                         android:layout_height="0dp"
                         android:layout_marginVertical="10dp"
                         android:background="#33E4E4E4"
-                        app:layout_constraintBottom_toBottomOf="@id/to_tv"
-                        app:layout_constraintStart_toEndOf="@id/to_tv"
-                        app:layout_constraintTop_toTopOf="@id/to_tv" />
+                        app:layout_constraintBottom_toBottomOf="@id/place_tv"
+                        app:layout_constraintStart_toEndOf="@id/place_tv"
+                        app:layout_constraintTop_toTopOf="@id/place_tv" />
 
                     <ImageView
                         android:id="@+id/next_iv"
@@ -126,10 +105,10 @@
                         android:layout_weight="1"
                         android:scaleType="center"
                         android:src="@drawable/ic_baseline_arrow_right_alt_24"
-                        app:layout_constraintBottom_toBottomOf="@id/to_tv"
+                        app:layout_constraintBottom_toBottomOf="@id/place_tv"
                         app:layout_constraintEnd_toEndOf="parent"
                         app:layout_constraintStart_toEndOf="@id/dv_between_tv_iv"
-                        app:layout_constraintTop_toTopOf="@id/to_tv" />
+                        app:layout_constraintTop_toTopOf="@id/place_tv" />
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -137,6 +116,8 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+
     </androidx.cardview.widget.CardView>
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

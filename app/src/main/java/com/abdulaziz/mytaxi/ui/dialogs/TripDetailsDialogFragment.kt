@@ -29,7 +29,6 @@ class TripDetailsDialogFragment : BottomSheetDialogFragment() {
     private var saveItem = false
     private var removeItem = false
 
-
     @SuppressLint("RestrictedApi")
     override fun setupDialog(dialog: Dialog, style: Int) {
         super.setupDialog(dialog, style)

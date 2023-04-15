@@ -3,16 +3,20 @@ package com.abdulaziz.mytaxi.ui.view.map_screen
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.location.Location
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AnticipateOvershootInterpolator
 import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.appcompat.content.res.AppCompatResources
@@ -24,12 +28,14 @@ import com.abdulaziz.mytaxi.data.local.Trip
 import com.abdulaziz.mytaxi.data.local.TripDao
 import com.abdulaziz.mytaxi.data.local.TripOfDay
 import com.abdulaziz.mytaxi.data.model.MapPoint
+import com.abdulaziz.mytaxi.data.model.getPoint
 import com.abdulaziz.mytaxi.databinding.FragmentMapBinding
 import com.abdulaziz.mytaxi.ui.dialogs.TripDetailsDialogFragment
 import com.abdulaziz.mytaxi.ui.view.main.MainView
-import com.abdulaziz.mytaxi.ui.view.search.SearchPlaceFragment
-import com.abdulaziz.mytaxi.ui.view.trip_history_screen.TripHistoryFragment
+import com.abdulaziz.mytaxi.ui.view.picker.PlacePickFragment
 import com.abdulaziz.mytaxi.utils.NetworkHelper
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.karumi.dexter.Dexter
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionDeniedResponse
@@ -38,18 +44,19 @@ import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.single.PermissionListener
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.geojson.Point
-import com.mapbox.maps.CameraOptions
-import com.mapbox.maps.MapView
-import com.mapbox.maps.Style
+import com.mapbox.maps.*
 import com.mapbox.maps.extension.style.expressions.dsl.generated.interpolate
+import com.mapbox.maps.extension.style.sources.getSource
 import com.mapbox.maps.plugin.LocationPuck2D
+import com.mapbox.maps.plugin.animation.CameraAnimatorOptions.Companion.cameraAnimatorOptions
+import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.AnnotationConfig
-import com.mapbox.maps.plugin.annotation.AnnotationManager
-import com.mapbox.maps.plugin.annotation.AnnotationManagerImpl
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
+import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
 import com.mapbox.maps.plugin.attribution.attribution
 import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.gestures.OnMoveListener
@@ -60,22 +67,29 @@ import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListen
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.logo.logo
 import com.mapbox.maps.plugin.scalebar.scalebar
+import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
+import com.mapbox.navigation.base.extensions.applyLanguageAndVoiceUnitOptions
 import com.mapbox.navigation.base.route.NavigationRoute
+import com.mapbox.navigation.base.route.NavigationRouterCallback
+import com.mapbox.navigation.base.route.RouterFailure
+import com.mapbox.navigation.base.route.RouterOrigin
+import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
+import com.mapbox.navigation.core.trip.session.LocationMatcherResult
+import com.mapbox.navigation.core.trip.session.LocationObserver
+import com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer
+import com.mapbox.navigation.ui.maps.route.line.MapboxRouteLineApiExtensions.clearRouteLine
+import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineApi
+import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
+import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineOptions
 import com.mapbox.search.*
-import com.mapbox.search.autocomplete.PlaceAutocomplete
-import com.mapbox.search.autofill.AddressAutofill
-import com.mapbox.search.autofill.AddressAutofillOptions
-import com.mapbox.search.autofill.Query
-import com.mapbox.search.result.SearchResult
-import com.mapbox.search.result.SearchSuggestion
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
+import kotlin.collections.ArrayList
+import kotlin.math.roundToInt
 
-private const val FROM = "from"
-private const val TO = "to"
 private const val MY_LOCATION = "Мое текущее местоположение"
 private const val SELECT_PLACE_ON_MAP = "Выбрать место на карте"
 private const val YOUR_LOCATION_NOT_FOUND = "Ваше текущее местоположение не найдено"
@@ -84,13 +98,13 @@ private const val BOTTOM_SHEET_TAG = "bottom_sheet_tag"
 @AndroidEntryPoint
 class MapFragment : Fragment(), PermissionListener {
 
+    private lateinit var routeLineView: MapboxRouteLineView
+    private lateinit var routeLineApi: MapboxRouteLineApi
     private var _binding: FragmentMapBinding? = null
     private val binding get() = _binding!!
     private lateinit var mapView: MapView
     private var originPosition: Point? = null
     private var destinationPosition: Point? = null
-
-    private var direction: String = ""
 
     @Inject
     lateinit var tripDao: TripDao
@@ -100,8 +114,7 @@ class MapFragment : Fragment(), PermissionListener {
 
     private var currentLocation: Point? = null
     private val TAG = "MapFragment"
-
-
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -109,6 +122,28 @@ class MapFragment : Fragment(), PermissionListener {
     ): View {
         _binding = FragmentMapBinding.inflate(layoutInflater, container, false)
         (activity as MainView?)?.showToolbar()
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        initMapComponents()
+        initUiComponents()
+        onMapReady()
+        observeFragmentResults()
+    }
+
+    private val locationObserver = object : LocationObserver {
+        override fun onNewLocationMatcherResult(locationMatcherResult: LocationMatcherResult) {
+            // var lastLocation = locationMatcherResult.enhancedLocation
+        }
+
+        override fun onNewRawLocation(rawLocation: Location) {
+            // no impl
+        }
+    }
+
+    private fun initMapComponents() {
         with(binding.map) {
             logo.enabled = false
             compass.enabled = false
@@ -117,47 +152,136 @@ class MapFragment : Fragment(), PermissionListener {
             mapView = this
         }
         mapView.getMapboxMap().loadStyleUri(Style.MAPBOX_STREETS)
-        return binding.root
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+
+        val routeLineOptions = MapboxRouteLineOptions.Builder(requireContext()).build()
+        routeLineApi = MapboxRouteLineApi(routeLineOptions)
+        routeLineView = MapboxRouteLineView(routeLineOptions)
+
+        MapboxNavigationApp.current()?.registerLocationObserver(locationObserver)
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        initUiComponents()
-        onMapReady()
-
+    private fun observeFragmentResults() {
         parentFragmentManager.setFragmentResultListener(
-            SearchPlaceFragment.MAP_POINT_REQUEST_CODE,
+            MAP_POINT_REQUEST_CODE,
             viewLifecycleOwner
         ) { _, data ->
             val mapPoint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                data.getSerializable(SearchPlaceFragment.MAP_POINT_KEY, MapPoint::class.java)
-            }else{
-                data.getSerializable(SearchPlaceFragment.MAP_POINT_KEY) as MapPoint
+                data.getSerializable(MAP_POINT_KEY, MapPoint::class.java)
+            } else {
+                data.getSerializable(MAP_POINT_KEY) as MapPoint
             }
 
-            if (mapPoint!=null){
-                when(mapPoint.routeType){
-                    "from" -> {
+            if (mapPoint != null) {
+                when (mapPoint.routeType) {
+                    ROUTE_TYPE_FROM -> {
                         binding.fromTv.text = mapPoint.directionName
+                        originPosition = mapPoint.getPoint()
+                        addOriginMarkerToMap(originPosition!!)
                     }
-                    "to" -> {
+                    ROUTE_TYPE_TO -> {
                         binding.toTv.text = mapPoint.directionName
+                        destinationPosition = mapPoint.getPoint()
+                        addDestinationMarkerToMap(destinationPosition!!)
                     }
                 }
+
+                if (originPosition != null && destinationPosition != null) {
+                    requestRoutes(originPosition!!, destinationPosition!!)
+                }
+                //addAnnotationToMap(mapPoint.getPoint())
             }
         }
     }
 
-    private fun initUiComponents() = with(binding) {
+    var requestId : Long?=null
+    private fun requestRoutes(origin: Point, destination: Point) {
+        requestId = MapboxNavigationApp.current()?.requestRoutes(
+            routeOptions = RouteOptions
+                .builder()
+                .applyDefaultNavigationOptions()
+                .applyLanguageAndVoiceUnitOptions(requireContext())
+                .coordinatesList(listOf(origin, destination))
+                .alternatives(false)
+                .build(),
+            callback = routerCallback
+        )
+    }
 
+    private val routerCallback = object : NavigationRouterCallback {
+        override fun onCanceled(
+            routeOptions: RouteOptions,
+            routerOrigin: RouterOrigin
+        ) {
+            Log.d(TAG, "onCanceled: ")
+        }
+
+        override fun onFailure(
+            reasons: List<RouterFailure>,
+            routeOptions: RouteOptions
+        ) {
+            Log.d(TAG, "onFailure: ")
+        }
+
+        override fun onRoutesReady(routes: List<NavigationRoute>, routerOrigin: RouterOrigin) {
+            // note: the first route in the list is considered the primary route
+            /*binding.navigationView.api.routeReplayEnabled(true)
+            binding.navigationView.api.startActiveGuidance(routes)*/
+            Log.d(TAG, "onRoutesReady: ")
+            routeLineApi.setNavigationRoutes(routes) { value ->
+                mapView.getMapboxMap().getStyle()
+                    ?.let { style ->
+                        routeLineView.renderRouteDrawData(style, value)
+                        onCameraTrackingDismissed()
+                        openBottomSheetDialog()
+                        animateCamera()
+                        addOriginMarkerToMap(originPosition!!)
+                        addDestinationMarkerToMap(destinationPosition!!)
+                    }
+            }
+        }
+
+    }
+
+    private fun animateCamera() {
+        val configuration: Configuration = resources.configuration
+        val width = configuration.screenWidthDp
+        val height = configuration.screenHeightDp
+        val paddingBottom = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            (height * 3 / 4).toFloat(),
+            resources.displayMetrics
+        ).roundToInt().toDouble()
+        val paddingTop = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            (height / 10).toFloat(),
+            resources.displayMetrics
+        ).roundToInt().toDouble()
+        val paddingHorizontal = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            (width / 10).toFloat(),
+            resources.displayMetrics
+        ).roundToInt().toDouble()
+
+        val cameraOptions = mapView.getMapboxMap()
+            .cameraForCoordinates(
+                listOf(originPosition!!, destinationPosition!!),
+                EdgeInsets(
+                    paddingTop,
+                    paddingHorizontal,
+                    paddingBottom,
+                    paddingHorizontal
+                )
+            )
+        mapView.getMapboxMap().setCamera(cameraOptions)
+    }
+
+    private fun initUiComponents() = with(binding) {
         fromTv.setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(
-                    R.id.fragment_container,
-                    SearchPlaceFragment::class.java,
-                    bundleOf(SearchPlaceFragment.ROUTE_TYPE_KEY to "from")
-                ).addToBackStack("map").commit()
-            //openAutoComplete(it.id)
+            openPlacePicker(ROUTE_TYPE_FROM)
+        }
+        toTv.setOnClickListener {
+            openPlacePicker(ROUTE_TYPE_TO)
         }
 
         nextIv.setOnClickListener {
@@ -171,43 +295,36 @@ class MapFragment : Fragment(), PermissionListener {
 
         fab.setOnClickListener {
             onCameraTrackingEnabled()
-            mapView.getMapboxMap().setCamera(
-                CameraOptions.Builder()
-                    .center(currentLocation)
-                    .zoom(16.0)
-                    .build()
-            )
+            focusCurrentLocation()
         }
 
-        mapView.getMapboxMap().addOnMapClickListener {
+      /*  mapView.getMapboxMap().addOnMapClickListener {
             addAnnotationToMap(it)
             true
-        }
+        }*/
     }
 
-    private val onIndicatorBearingChangedListener = OnIndicatorBearingChangedListener {
-        mapView.getMapboxMap().setCamera(CameraOptions.Builder().bearing(it).build())
+    private fun openPlacePicker(routeType: String) {
+        parentFragmentManager.beginTransaction()
+            .replace(
+                R.id.fragment_container,
+                PlacePickFragment::class.java,
+                bundleOf(ROUTE_TYPE_KEY to routeType)
+            ).addToBackStack("map").commit()
     }
 
-    private val onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener {
-        currentLocation = it
-        mapView.getMapboxMap().setCamera(
-            CameraOptions.Builder()
-                .center(it).build()
-        )
-        mapView.gestures.focalPoint = mapView.getMapboxMap().pixelForCoordinate(it)
-    }
+    @SuppressLint("MissingPermission")
+    private fun focusCurrentLocation() {
+        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+            if (location != null) {
+                val cameraPosition = CameraOptions.Builder()
+                    .zoom(16.0)
 
-    private val onMoveListener = object : OnMoveListener {
-        override fun onMoveBegin(detector: MoveGestureDetector) {
-            onCameraTrackingDismissed()
+                    .center(Point.fromLngLat(location.longitude, location.latitude))
+                    .build()
+                mapView.getMapboxMap().setCamera(cameraPosition)
+            }
         }
-
-        override fun onMove(detector: MoveGestureDetector): Boolean {
-            return false
-        }
-
-        override fun onMoveEnd(detector: MoveGestureDetector) {}
     }
 
 
@@ -247,6 +364,10 @@ class MapFragment : Fragment(), PermissionListener {
             TripDetailsDialogFragment.OnBottomSheetListener {
             override fun onClosed(isSaved: Boolean, isRemoved: Boolean) {
                 (activity as MainView?)?.showToolbar()
+                Toast.makeText(requireContext(), "cancel clicked!", Toast.LENGTH_SHORT).show()
+                clearRouteLines()
+                clearMarkers()
+                focusCurrentLocation()
                 if (isSaved) {
                     saveTrip(trip)
                 }
@@ -256,6 +377,20 @@ class MapFragment : Fragment(), PermissionListener {
         dialogFragment.setTrip(trip)
         dialogFragment.setSaveButton()
         dialogFragment.show(childFragmentManager, BOTTOM_SHEET_TAG)
+    }
+
+    private fun clearMarkers(){
+        val annotationApi = mapView.annotations
+        annotationApi.cleanup()
+    }
+
+    private fun clearRouteLines() {
+        lifecycleScope.launch {
+            mapView.getMapboxMap().getStyle()
+                ?.let { style ->
+                    routeLineView.renderClearRouteLineValue(style, routeLineApi.clearRouteLine())
+                }
+        }
     }
 
     private fun saveTrip(trip: Trip) {
@@ -288,14 +423,6 @@ class MapFragment : Fragment(), PermissionListener {
     }
 
 
-    private fun openAutoComplete(editTextId: Int) {
-        direction = when (editTextId) {
-            R.id.to_tv -> TO
-            R.id.from_tv -> FROM
-            else -> TO
-        }
-    }
-
     private fun onMapReady() {
         mapView.getMapboxMap().setCamera(
             CameraOptions.Builder()
@@ -305,51 +432,82 @@ class MapFragment : Fragment(), PermissionListener {
         mapView.getMapboxMap().loadStyleUri(
             Style.MAPBOX_STREETS
         ) {
-            mapView.getMapboxMap()
             initLocationComponent()
             setupGesturesListener()
         }
     }
 
-    private fun addAnnotationToMap(point: Point) {
-        val searchEngine = SearchEngine.createSearchEngine(SearchEngineSettings(getString(R.string.mapbox_access_token)))
-        val options = ReverseGeoOptions(
-            center = point,
-            limit = 1
-        )
-        searchEngine.search("fergana", SearchOptions(), object : SearchSuggestionsCallback{
-            override fun onError(e: Exception) {
-                Log.d(TAG, "onError: ${e.message}")
-            }
-
-            override fun onSuggestions(
-                suggestions: List<SearchSuggestion>,
-                responseInfo: ResponseInfo
-            ) {
-
-                Log.d(TAG, "onResults: ${suggestions[0].fullAddress}")
-            }
-
-
-        })
-// Create an instance of the Annotation API and get the PointAnnotationManager.
+  /*  private fun addAnnotationToMap(point: Point) {
+        // Create an instance of the Annotation API and get the PointAnnotationManager.
         bitmapFromDrawableRes(
             requireContext(),
             R.drawable.ic_baseline_location_on_24
         )?.let {
             val annotationApi = mapView.annotations
-            annotationApi.cleanup()
+            //annotationApi.cleanup()
+
             val pointAnnotationManager = annotationApi.createPointAnnotationManager(
                 AnnotationConfig()
             )
             // Set options for the resulting symbol layer.
             val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-// Define a geographic coordinate.
+            // Define a geographic coordinate.
                 .withPoint(point)
-// Specify the bitmap you assigned to the point annotation
-// The bitmap will be added to map style automatically.
+            // Specify the bitmap you assigned to the point annotation
+            // The bitmap will be added to map style automatically.
                 .withIconImage(it)
-// Add the resulting pointAnnotation to the map.
+            // Add the resulting pointAnnotation to the map.
+            pointAnnotationManager.create(pointAnnotationOptions)
+        }
+    }*/
+
+    private fun addOriginMarkerToMap(point: Point) {
+        // Create an instance of the Annotation API and get the PointAnnotationManager.
+        bitmapFromDrawableRes(
+            requireContext(),
+            R.drawable.ic_baseline_gps_red
+        )?.let {
+            val annotationApi = mapView.annotations
+            //annotationApi.cleanup()
+
+            val pointAnnotationManager = annotationApi.createPointAnnotationManager(
+                AnnotationConfig()
+            )
+            // Set options for the resulting symbol layer.
+            val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
+            // Define a geographic coordinate.
+                .withPoint(point)
+            // Specify the bitmap you assigned to the point annotation
+            // The bitmap will be added to map style automatically.
+                .withIconImage(it)
+                .withIconSize(2.0)
+            // Add the resulting pointAnnotation to the map.
+            pointAnnotationManager.create(pointAnnotationOptions)
+        }
+    }
+
+
+    private fun addDestinationMarkerToMap(point: Point) {
+        // Create an instance of the Annotation API and get the PointAnnotationManager.
+        bitmapFromDrawableRes(
+            requireContext(),
+            R.drawable.ic_baseline_gps_fixed_24
+        )?.let {
+            val annotationApi = mapView.annotations
+
+            val pointAnnotationManager = annotationApi.createPointAnnotationManager(
+                AnnotationConfig(layerId = "Destination")
+            )
+
+            // Set options for the resulting symbol layer.
+            val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
+            // Define a geographic coordinate.
+                .withPoint(point)
+            // Specify the bitmap you assigned to the point annotation
+            // The bitmap will be added to map style automatically.
+                .withIconImage(it)
+                .withIconSize(2.0)
+            // Add the resulting pointAnnotation to the map.
             pointAnnotationManager.create(pointAnnotationOptions)
         }
     }
@@ -448,11 +606,40 @@ class MapFragment : Fragment(), PermissionListener {
 
     }
 
+
+    private val onIndicatorBearingChangedListener = OnIndicatorBearingChangedListener {
+        Log.d(TAG, "bearing changed: ")
+        // mapView.getMapboxMap().setCamera(CameraOptions.Builder().bearing(it).build())
+    }
+
+    private val onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener {
+        currentLocation = it
+        mapView.getMapboxMap().setCamera(
+            CameraOptions.Builder()
+                .center(it).build()
+        )
+        mapView.gestures.focalPoint = mapView.getMapboxMap().pixelForCoordinate(it)
+    }
+
+    private val onMoveListener = object : OnMoveListener {
+        override fun onMoveBegin(detector: MoveGestureDetector) {
+            onCameraTrackingDismissed()
+        }
+
+        override fun onMove(detector: MoveGestureDetector): Boolean {
+            return false
+        }
+
+        override fun onMoveEnd(detector: MoveGestureDetector) {}
+    }
+
+    @SuppressLint("Lifecycle")
     override fun onStart() {
         super.onStart()
         mapView.onStart()
     }
 
+    @SuppressLint("Lifecycle")
     override fun onStop() {
         super.onStop()
         mapView.onStop()
@@ -469,6 +656,9 @@ class MapFragment : Fragment(), PermissionListener {
         super.onDestroy()
         onCameraTrackingDismissed()
         mapView.onDestroy()
+        routeLineApi.cancel()
+        routeLineView.cancel()
+        MapboxNavigationApp.current()?.unregisterLocationObserver(locationObserver)
     }
 
 /*  private fun convertDrawableToBitmap(sourceDrawable: Drawable?): Bitmap? {
@@ -490,4 +680,19 @@ class MapFragment : Fragment(), PermissionListener {
             bitmap
         }
     }*/
+
+
+    companion object {
+        const val MAP_POINT_REQUEST_CODE = "point_request_code"
+        const val MAP_POINT_KEY = "map_point_key"
+        const val ROUTE_TYPE_KEY = "map_point_key"
+        const val ROUTE_TYPE_TO = "to"
+        const val ROUTE_TYPE_FROM = "from"
+        const val ROUTE_DEFAULT_TYPE = "from"
+    }
+
+    /* sealed class RouteType {
+         object TO : RouteType()
+         object FROM : RouteType()
+     }*/
 }

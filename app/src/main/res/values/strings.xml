@@ -21,4 +21,6 @@
     <string name="address_autofill_address_apt_hint">address_autofill_address_apt_hint</string>
     <string name="address_autofill_pin_correction_note">address_autofill_pin_correction_note</string>
     <string name="address_autofill_error_pin_correction">address_autofill_error_pin_correction</string>
+    <string name="unknown_place">Неизвестное место</string>
+    <string name="search">Поиск…</string>
 </resources>
