@@ -1,5 +1,6 @@
 package com.abdulaziz.mytaxi.ui.view.trip_details_screen
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
@@ -55,75 +56,6 @@ class TripDetailsFragment : Fragment() {
         return binding.root
     }
 
-
-/*    private fun getRoute() {
-        NavigationRoute.builder()
-            .accessToken(Mapbox.getAccessToken())
-            .origin(Point.fromLngLat(trip!!.originLongitude, trip!!.originLatitude))
-            .destination(Point.fromLngLat(trip!!.destinationLongitude, trip!!.destinationLatitude))
-            .build()
-            .getRoute(object : Callback<DirectionsResponse> {
-                override fun onResponse(
-                    call: Call<DirectionsResponse>,
-                    response: Response<DirectionsResponse>
-                ) {
-                    if (response.isSuccessful) {
-                        val currentRoute = response.body()?.routes()?.get(0)
-
-                        val navigationMapRoute = NavigationMapRoute(null, mapView, map)
-
-                        navigationMapRoute.addRoute(currentRoute)
-
-                        // Animate Camera
-                        val bounds = LatLngBounds.Builder()
-                            .include(
-                                LatLng(
-                                    trip!!.originLatitude,
-                                    trip!!.originLongitude,
-                                )
-                            )
-                            .include(
-                                LatLng(
-                                    trip!!.destinationLatitude,
-                                    trip!!.destinationLongitude, 100.0
-                                )
-                            )
-                            .build()
-
-                        val configuration: Configuration = resources.configuration
-                        val width = configuration.screenWidthDp
-                        val height = configuration.screenHeightDp
-                        val paddingBottom = TypedValue.applyDimension(
-                            TypedValue.COMPLEX_UNIT_DIP,
-                            (height * 3 / 4).toFloat(),
-                            resources.displayMetrics
-                        ).roundToInt()
-                        val paddingTop = TypedValue.applyDimension(
-                            TypedValue.COMPLEX_UNIT_DIP,
-                            (height / 10).toFloat(),
-                            resources.displayMetrics
-                        ).roundToInt()
-                        val paddingHorizontal = TypedValue.applyDimension(
-                            TypedValue.COMPLEX_UNIT_DIP,
-                            (width / 10).toFloat(),
-                            resources.displayMetrics
-                        ).roundToInt()
-
-                        val cameraPosition =
-                            map.getCameraForLatLngBounds(bounds, intArrayOf(paddingHorizontal, paddingTop, paddingHorizontal, paddingBottom))
-                        map.easeCamera(CameraUpdateFactory.newCameraPosition(cameraPosition), 1000)
-                        openBottomSheetDialog()
-                    }
-                }
-
-
-                override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
-
-                }
-
-            })
-    }*/
-
     private fun openBottomSheetDialog() {
         val dialogFragment = TripDetailsDialogFragment()
 
@@ -168,22 +100,25 @@ class TripDetailsFragment : Fragment() {
     }
 
 
+    @SuppressLint("Lifecycle")
     override fun onStart() {
         super.onStart()
         mapView.onStart()
     }
 
-
+    @SuppressLint("Lifecycle")
     override fun onStop() {
         super.onStop()
         mapView.onStop()
     }
 
+    @SuppressLint("Lifecycle")
     override fun onLowMemory() {
         super.onLowMemory()
         mapView.onLowMemory()
     }
 
+    @SuppressLint("Lifecycle")
     override fun onDestroy() {
         super.onDestroy()
         mapView.onDestroy()

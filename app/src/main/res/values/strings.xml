@@ -23,4 +23,6 @@
     <string name="address_autofill_error_pin_correction">address_autofill_error_pin_correction</string>
     <string name="unknown_place">Неизвестное место</string>
     <string name="search">Поиск…</string>
+    <string name="whence">Откуда?</string>
+    <string name="where_to">Куда?</string>
 </resources>

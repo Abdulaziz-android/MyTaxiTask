@@ -2,21 +2,28 @@ package com.abdulaziz.mytaxi.ui.view.map_screen
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
+import android.content.Intent.CATEGORY_DEFAULT
+import android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+import android.content.Intent.FLAG_ACTIVITY_NO_HISTORY
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.location.Location
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
 import android.util.Log
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.AnticipateOvershootInterpolator
 import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.appcompat.content.res.AppCompatResources
@@ -48,19 +55,14 @@ import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.geojson.Point
 import com.mapbox.maps.*
 import com.mapbox.maps.extension.style.expressions.dsl.generated.interpolate
-import com.mapbox.maps.extension.style.sources.getSource
 import com.mapbox.maps.plugin.LocationPuck2D
-import com.mapbox.maps.plugin.animation.CameraAnimatorOptions.Companion.cameraAnimatorOptions
-import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.AnnotationConfig
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
-import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
 import com.mapbox.maps.plugin.attribution.attribution
 import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.gestures.OnMoveListener
-import com.mapbox.maps.plugin.gestures.addOnMapClickListener
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorBearingChangedListener
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
@@ -76,7 +78,6 @@ import com.mapbox.navigation.base.route.RouterOrigin
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.core.trip.session.LocationMatcherResult
 import com.mapbox.navigation.core.trip.session.LocationObserver
-import com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer
 import com.mapbox.navigation.ui.maps.route.line.MapboxRouteLineApiExtensions.clearRouteLine
 import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineApi
 import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
@@ -87,8 +88,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
-import kotlin.collections.ArrayList
 import kotlin.math.roundToInt
+
 
 private const val MY_LOCATION = "Мое текущее местоположение"
 private const val SELECT_PLACE_ON_MAP = "Выбрать место на карте"
@@ -105,6 +106,8 @@ class MapFragment : Fragment(), PermissionListener {
     private lateinit var mapView: MapView
     private var originPosition: Point? = null
     private var destinationPosition: Point? = null
+    private var originName: String = ""
+    private var destinationName: String = ""
 
     @Inject
     lateinit var tripDao: TripDao
@@ -115,6 +118,14 @@ class MapFragment : Fragment(), PermissionListener {
     private var currentLocation: Point? = null
     private val TAG = "MapFragment"
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        savedInstanceState?.let { bundle ->
+            originName = bundle.getString(ROUTE_TYPE_FROM, getString(R.string.whence))
+            destinationName = bundle.getString(ROUTE_TYPE_TO, getString(R.string.where_to))
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -143,6 +154,13 @@ class MapFragment : Fragment(), PermissionListener {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(ROUTE_TYPE_FROM, binding.fromTv.text.toString())
+        outState.putString(ROUTE_TYPE_TO, binding.toTv.text.toString())
+    }
+
+
     private fun initMapComponents() {
         with(binding.map) {
             logo.enabled = false
@@ -166,6 +184,7 @@ class MapFragment : Fragment(), PermissionListener {
             MAP_POINT_REQUEST_CODE,
             viewLifecycleOwner
         ) { _, data ->
+            Log.d(TAG, "observeFragmentResults: ")
             val mapPoint = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 data.getSerializable(MAP_POINT_KEY, MapPoint::class.java)
             } else {
@@ -175,33 +194,41 @@ class MapFragment : Fragment(), PermissionListener {
             if (mapPoint != null) {
                 when (mapPoint.routeType) {
                     ROUTE_TYPE_FROM -> {
-                        binding.fromTv.text = mapPoint.directionName
+                        originName = mapPoint.directionName ?: getString(R.string.whence)
+                        binding.fromTv.text = originName
                         originPosition = mapPoint.getPoint()
                         addOriginMarkerToMap(originPosition!!)
                     }
+
                     ROUTE_TYPE_TO -> {
-                        binding.toTv.text = mapPoint.directionName
+                        destinationName = mapPoint.directionName ?: getString(R.string.where_to)
+                        binding.toTv.text = destinationName
                         destinationPosition = mapPoint.getPoint()
                         addDestinationMarkerToMap(destinationPosition!!)
                     }
                 }
 
-                if (originPosition != null && destinationPosition != null) {
-                    requestRoutes(originPosition!!, destinationPosition!!)
+                if (destinationPosition != null) {
+                    requestRoutes()
                 }
-                //addAnnotationToMap(mapPoint.getPoint())
             }
         }
     }
 
-    var requestId : Long?=null
-    private fun requestRoutes(origin: Point, destination: Point) {
+    var requestId: Long? = null
+    private fun requestRoutes() {
+        Log.d(TAG, "requestRoutes: $currentLocation")
+        if (originPosition == null) {
+            originPosition = currentLocation
+            originName = "Текущее местоположение"
+            binding.fromTv.text = originName
+        }
         requestId = MapboxNavigationApp.current()?.requestRoutes(
             routeOptions = RouteOptions
                 .builder()
                 .applyDefaultNavigationOptions()
                 .applyLanguageAndVoiceUnitOptions(requireContext())
-                .coordinatesList(listOf(origin, destination))
+                .coordinatesList(listOf(originPosition, destinationPosition))
                 .alternatives(false)
                 .build(),
             callback = routerCallback
@@ -277,6 +304,9 @@ class MapFragment : Fragment(), PermissionListener {
     }
 
     private fun initUiComponents() = with(binding) {
+        fromTv.text = originName
+        toTv.text = destinationName
+
         fromTv.setOnClickListener {
             openPlacePicker(ROUTE_TYPE_FROM)
         }
@@ -284,24 +314,15 @@ class MapFragment : Fragment(), PermissionListener {
             openPlacePicker(ROUTE_TYPE_TO)
         }
 
-        nextIv.setOnClickListener {
-            if (originPosition != null && destinationPosition != null
-                && toTv.text.toString().isNotEmpty() && fromTv.text.toString()
-                    .isNotEmpty()
-            ) {
-                openBottomSheetDialog()
-            }
-        }
-
         fab.setOnClickListener {
             onCameraTrackingEnabled()
             focusCurrentLocation()
         }
 
-      /*  mapView.getMapboxMap().addOnMapClickListener {
-            addAnnotationToMap(it)
-            true
-        }*/
+        /*  mapView.getMapboxMap().addOnMapClickListener {
+              addAnnotationToMap(it)
+              true
+          }*/
     }
 
     private fun openPlacePicker(routeType: String) {
@@ -317,9 +338,9 @@ class MapFragment : Fragment(), PermissionListener {
     private fun focusCurrentLocation() {
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
             if (location != null) {
+                currentLocation = Point.fromLngLat(location.longitude, location.latitude)
                 val cameraPosition = CameraOptions.Builder()
                     .zoom(16.0)
-
                     .center(Point.fromLngLat(location.longitude, location.latitude))
                     .build()
                 mapView.getMapboxMap().setCamera(cameraPosition)
@@ -379,7 +400,7 @@ class MapFragment : Fragment(), PermissionListener {
         dialogFragment.show(childFragmentManager, BOTTOM_SHEET_TAG)
     }
 
-    private fun clearMarkers(){
+    private fun clearMarkers() {
         val annotationApi = mapView.annotations
         annotationApi.cleanup()
     }
@@ -424,42 +445,12 @@ class MapFragment : Fragment(), PermissionListener {
 
 
     private fun onMapReady() {
-        mapView.getMapboxMap().setCamera(
-            CameraOptions.Builder()
-                .zoom(16.0)
-                .build()
-        )
         mapView.getMapboxMap().loadStyleUri(
             Style.MAPBOX_STREETS
         ) {
-            initLocationComponent()
-            setupGesturesListener()
+            enableLocation()
         }
     }
-
-  /*  private fun addAnnotationToMap(point: Point) {
-        // Create an instance of the Annotation API and get the PointAnnotationManager.
-        bitmapFromDrawableRes(
-            requireContext(),
-            R.drawable.ic_baseline_location_on_24
-        )?.let {
-            val annotationApi = mapView.annotations
-            //annotationApi.cleanup()
-
-            val pointAnnotationManager = annotationApi.createPointAnnotationManager(
-                AnnotationConfig()
-            )
-            // Set options for the resulting symbol layer.
-            val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-            // Define a geographic coordinate.
-                .withPoint(point)
-            // Specify the bitmap you assigned to the point annotation
-            // The bitmap will be added to map style automatically.
-                .withIconImage(it)
-            // Add the resulting pointAnnotation to the map.
-            pointAnnotationManager.create(pointAnnotationOptions)
-        }
-    }*/
 
     private fun addOriginMarkerToMap(point: Point) {
         // Create an instance of the Annotation API and get the PointAnnotationManager.
@@ -475,12 +466,12 @@ class MapFragment : Fragment(), PermissionListener {
             )
             // Set options for the resulting symbol layer.
             val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-            // Define a geographic coordinate.
+                // Define a geographic coordinate.
                 .withPoint(point)
-            // Specify the bitmap you assigned to the point annotation
-            // The bitmap will be added to map style automatically.
+                // Specify the bitmap you assigned to the point annotation
+                // The bitmap will be added to map style automatically.
                 .withIconImage(it)
-                .withIconSize(2.0)
+                .withIconSize(1.5)
             // Add the resulting pointAnnotation to the map.
             pointAnnotationManager.create(pointAnnotationOptions)
         }
@@ -501,12 +492,12 @@ class MapFragment : Fragment(), PermissionListener {
 
             // Set options for the resulting symbol layer.
             val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-            // Define a geographic coordinate.
+                // Define a geographic coordinate.
                 .withPoint(point)
-            // Specify the bitmap you assigned to the point annotation
-            // The bitmap will be added to map style automatically.
+                // Specify the bitmap you assigned to the point annotation
+                // The bitmap will be added to map style automatically.
                 .withIconImage(it)
-                .withIconSize(2.0)
+                .withIconSize(1.5)
             // Add the resulting pointAnnotation to the map.
             pointAnnotationManager.create(pointAnnotationOptions)
         }
@@ -580,30 +571,75 @@ class MapFragment : Fragment(), PermissionListener {
     }
 
     private fun enableLocation() {
-        if (PermissionsManager.areLocationPermissionsGranted(binding.root.context)) {
-            /* initializeLocationEngine()
-             initializeLocationLayer()*/
+
+        Dexter.withContext(requireContext())
+            .withPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+            .withListener(this)
+            .check()
+       /* if (PermissionsManager.areLocationPermissionsGranted(requireContext())) {
+            *//* initializeLocationEngine()
+             initializeLocationLayer()*//*
+
+            mapView.getMapboxMap().setCamera(
+                CameraOptions.Builder()
+                    .zoom(16.0)
+                    .build()
+            )
+            initLocationComponent()
+            setupGesturesListener()
 
         } else {
-            Dexter.withContext(binding.root.context)
+            Dexter.withContext(requireContext())
                 .withPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 .withListener(this)
                 .check()
+        }*/
+    }
+
+    private fun openPermissionDialog(){
+        val dialog = AlertDialog.Builder(requireContext()).create()
+        dialog.apply {
+            setMessage("Пожалуйста, разрешите определение местоположения через настройки, чтобы приложение работало!")
+            setButton(AlertDialog.BUTTON_NEGATIVE, "Назад"){ _, b ->
+                requireActivity().finish()
+            }
+            setButton(AlertDialog.BUTTON_POSITIVE, "Настройки"){ _, b ->
+                val intent = Intent(ACTION_APPLICATION_DETAILS_SETTINGS)
+                with(intent) {
+                    data = Uri.fromParts("package", requireContext().packageName, null)
+                    addCategory(CATEGORY_DEFAULT)
+                    addFlags(FLAG_ACTIVITY_NEW_TASK)
+                    addFlags(FLAG_ACTIVITY_NO_HISTORY)
+                    addFlags(FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                }
+                startActivity(intent)
+            }
+            setCancelable(false)
+            show()
         }
     }
 
     override fun onPermissionGranted(p0: PermissionGrantedResponse?) {
-        /*initializeLocationEngine()
-        initializeLocationLayer()*/
+        Log.d(TAG, "onPermissionGranted: ")
+        mapView.getMapboxMap().setCamera(
+            CameraOptions.Builder()
+                .zoom(16.0)
+                .build()
+        )
+        initLocationComponent()
+        setupGesturesListener()
     }
 
     override fun onPermissionDenied(p0: PermissionDeniedResponse?) {
+        Log.d(TAG, "onPermissionDenied: ")
+        openPermissionDialog()
         Toast.makeText(binding.root.context, "Пожалуйста, включите разрешение!", Toast.LENGTH_SHORT)
             .show()
     }
 
     override fun onPermissionRationaleShouldBeShown(p0: PermissionRequest?, p1: PermissionToken?) {
-
+        Log.d(TAG, "onPermissionRationaleShouldBeShown: ")
+        openPermissionDialog()
     }
 
 
@@ -661,25 +697,25 @@ class MapFragment : Fragment(), PermissionListener {
         MapboxNavigationApp.current()?.unregisterLocationObserver(locationObserver)
     }
 
-/*  private fun convertDrawableToBitmap(sourceDrawable: Drawable?): Bitmap? {
-        if (sourceDrawable == null) {
-            return null
-        }
-        return if (sourceDrawable is BitmapDrawable) {
-            sourceDrawable.bitmap
-        } else {
-            val constantState = sourceDrawable.constantState ?: return null
-            val drawable = constantState.newDrawable().mutate()
-            val bitmap: Bitmap = Bitmap.createBitmap(
-                drawable.intrinsicWidth, drawable.intrinsicHeight,
-                Bitmap.Config.ARGB_8888
-            )
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap
-        }
-    }*/
+    /*  private fun convertDrawableToBitmap(sourceDrawable: Drawable?): Bitmap? {
+            if (sourceDrawable == null) {
+                return null
+            }
+            return if (sourceDrawable is BitmapDrawable) {
+                sourceDrawable.bitmap
+            } else {
+                val constantState = sourceDrawable.constantState ?: return null
+                val drawable = constantState.newDrawable().mutate()
+                val bitmap: Bitmap = Bitmap.createBitmap(
+                    drawable.intrinsicWidth, drawable.intrinsicHeight,
+                    Bitmap.Config.ARGB_8888
+                )
+                val canvas = Canvas(bitmap)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bitmap
+            }
+        }*/
 
 
     companion object {
@@ -688,7 +724,6 @@ class MapFragment : Fragment(), PermissionListener {
         const val ROUTE_TYPE_KEY = "map_point_key"
         const val ROUTE_TYPE_TO = "to"
         const val ROUTE_TYPE_FROM = "from"
-        const val ROUTE_DEFAULT_TYPE = "from"
     }
 
     /* sealed class RouteType {
