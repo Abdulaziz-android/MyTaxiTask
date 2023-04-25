@@ -24,7 +24,6 @@ import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.os.bundleOf
@@ -49,7 +48,6 @@ import com.karumi.dexter.listener.PermissionDeniedResponse
 import com.karumi.dexter.listener.PermissionGrantedResponse
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.single.PermissionListener
-import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.geojson.Point
@@ -350,7 +348,7 @@ class MapFragment : Fragment(), PermissionListener {
 
 
     private fun onCameraTrackingDismissed() {
-        Toast.makeText(requireContext(), "onCameraTrackingDismissed", Toast.LENGTH_SHORT).show()
+        //Toast.makeText(requireContext(), "onCameraTrackingDismissed", Toast.LENGTH_SHORT).show()
         mapView.location
             .removeOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
         mapView.location
@@ -359,7 +357,7 @@ class MapFragment : Fragment(), PermissionListener {
     }
 
     private fun onCameraTrackingEnabled() {
-        Toast.makeText(requireContext(), "onCameraTrackingDismissed", Toast.LENGTH_SHORT).show()
+        //Toast.makeText(requireContext(), "onCameraTrackingDismissed", Toast.LENGTH_SHORT).show()
         mapView.location
             .addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
         mapView.location
@@ -385,7 +383,7 @@ class MapFragment : Fragment(), PermissionListener {
             TripDetailsDialogFragment.OnBottomSheetListener {
             override fun onClosed(isSaved: Boolean, isRemoved: Boolean) {
                 (activity as MainView?)?.showToolbar()
-                Toast.makeText(requireContext(), "cancel clicked!", Toast.LENGTH_SHORT).show()
+                //Toast.makeText(requireContext(), "cancel clicked!", Toast.LENGTH_SHORT).show()
                 clearRouteLines()
                 clearMarkers()
                 focusCurrentLocation()
@@ -633,8 +631,8 @@ class MapFragment : Fragment(), PermissionListener {
     override fun onPermissionDenied(p0: PermissionDeniedResponse?) {
         Log.d(TAG, "onPermissionDenied: ")
         openPermissionDialog()
-        Toast.makeText(binding.root.context, "Пожалуйста, включите разрешение!", Toast.LENGTH_SHORT)
-            .show()
+        /*Toast.makeText(binding.root.context, "Пожалуйста, включите разрешение!", Toast.LENGTH_SHORT)
+            .show()*/
     }
 
     override fun onPermissionRationaleShouldBeShown(p0: PermissionRequest?, p1: PermissionToken?) {
