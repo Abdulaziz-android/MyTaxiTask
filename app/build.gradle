@@ -72,18 +72,18 @@ dependencies {
 
     // MapBox dependencies
     implementation 'com.mapbox.maps:android:10.12.1'
-/*    implementation 'com.mapbox.mapboxsdk:mapbox-android-sdk:9.7.1'
-    implementation 'com.mapbox.mapboxsdk:mapbox-sdk-geojson:6.11.0'
-    implementation 'com.mapbox.mapboxsdk:mapbox-sdk-services:6.11.0'*/
-/*
-    implementation "com.mapbox.search:autofill:1.0.0-rc.2"*/
-    implementation "com.mapbox.search:mapbox-search-android-ui:1.0.0-rc.2"
-    implementation "com.mapbox.search:discover:1.0.0-rc.2"
     implementation "com.mapbox.search:place-autocomplete:1.0.0-rc.2"
-    implementation "com.mapbox.search:offline:1.0.0-rc.2"
-
+    implementation "com.mapbox.search:mapbox-search-android-ui:1.0.0-rc.2"
     implementation "com.mapbox.navigation:android:2.11.0"
     implementation "com.mapbox.navigation:ui-dropin:2.11.0"
+
+/*  implementation 'com.mapbox.mapboxsdk:mapbox-android-sdk:9.7.1'
+    implementation 'com.mapbox.mapboxsdk:mapbox-sdk-geojson:6.11.0'
+    implementation "com.mapbox.search:discover:1.0.0-rc.2"
+    implementation "com.mapbox.search:offline:1.0.0-rc.2"
+    implementation "com.mapbox.search:autofill:1.0.0-rc.2
+    implementation 'com.mapbox.mapboxsdk:mapbox-sdk-services:6.11.0'*/
+
 
     // Google services
     implementation 'com.google.android.gms:play-services-location:21.0.1'
